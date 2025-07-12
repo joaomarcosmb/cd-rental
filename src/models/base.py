@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime
 from config.database import db
 
+
 class BaseModel(db.Model):
     __abstract__ = True
 
