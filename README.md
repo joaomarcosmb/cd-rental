@@ -1,7 +1,7 @@
 # ER DIAGRAM
 ```mermaid
 erDiagram
-    customer {
+    person {
         uuid id PK
         string cpf
         string name
@@ -9,12 +9,12 @@ erDiagram
         string email
     }
 
+    customer {
+        uuid person_id PK,FK
+    }
+
     attendant {
-        uuid id PK
-        string cpf
-        string name
-        string phone
-        string email
+        uuid person_id PK,FK
         uuid store_id FK
     }
 
@@ -46,8 +46,9 @@ erDiagram
     }
 
     rental {
-        uuid customer_id PK,FK
-        uuid cd_id PK,FK
+        uuid id PK
+        uuid customer_id FK
+        uuid cd_id FK
         datetime rental_date
         datetime return_date
         decimal amount_paid
@@ -70,25 +71,26 @@ erDiagram
 
     payment {
         uuid id PK
-        uuid customer_id FK
-        uuid cd_id FK
+        uuid rental_id FK
         decimal amount
         datetime payment_date
-        string payment_method
-        string status
+        enum payment_method "cash, credit_card, debit_card, pix"
+        enum status "pending, completed, failed, refunded"
     }
 
+    person ||--|| customer : "is a"
+    person ||--|| attendant : "is a"
+    
     store ||--|{ attendant : "employs"
     store ||--|| address : "has"
     store ||--|{ cd : "owns"
 
     artist ||--|{ cd : "records"
-    genre ||--|{ cd : "belongs_to"
-    cd_status ||--|{ cd : "has_status"
+    genre ||--|{ cd : "belongs to"
+    cd_status ||--|{ cd : "has status"
 
     customer ||--|{ rental : "makes"
-    cd ||--o{ rental : "rented_in"
+    cd ||--o{ rental : "rented in"
     
-    customer ||--|{ payment : "makes"
-    cd ||--o{ payment : "paid_for"
+    rental ||--|{ payment : "is paid via"
 ```
