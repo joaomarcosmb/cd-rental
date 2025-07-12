@@ -66,7 +66,7 @@ erDiagram
 
     cd_status {
         uuid id PK
-        string description
+        enum description "available, rented, maintenance, damaged, lost"
     }
 
     payment {

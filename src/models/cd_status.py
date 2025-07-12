@@ -1,30 +1,31 @@
 from uuid import uuid4
-from sqlalchemy import CheckConstraint, Column, String, Uuid
+from sqlalchemy import Column, Uuid, Enum
 from sqlalchemy.orm import relationship
 from models.base import BaseModel
+from validators import CdStatusValidator, ValidationError
 
 
 class CdStatus(BaseModel):
-    __tablename__ = 'cd_statuses'
+    __tablename__ = "cd_statuses"
+
+    VALID_STATUSES = ["available", "rented", "maintenance", "damaged", "lost"]
+    VALID_STATUSES_ENUM = Enum(*VALID_STATUSES, name="cd_status_enum")
 
     id = Column(Uuid, primary_key=True, default=uuid4)
-    description = Column(String(50), nullable=False, unique=True)
+    description = Column(VALID_STATUSES_ENUM, nullable=False, unique=True)
 
     # Relationships
-    cds = relationship('Cd', back_populates='status', lazy='dynamic')
-
-    __table_args__ = (
-        CheckConstraint('length(description) >= 2', name='check_cd_status_description_length'),
-    )
+    cds = relationship("Cd", back_populates="status", lazy="dynamic")
 
     def __init__(self, description):
-        self.description = self._validate_description(description)
+        try:
+            validated_data = CdStatusValidator.validate_cd_status_data(description)
 
-    def _validate_description(self, description):
-        if not description or len(description.strip()) < 2:
-            raise ValueError('CD status description must be at least 2 characters')
-        
-        return description.strip().title()
+            self.description = validated_data["description"]
+
+        except ValidationError as e:
+            # Convert ValidationError to ValueError for backward compatibility
+            raise ValueError(str(e))
 
     def __repr__(self):
-        return f"<CdStatus {self.description}>" 
+        return f"<CdStatus {self.description}>"
