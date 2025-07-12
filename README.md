@@ -49,6 +49,7 @@ erDiagram
         uuid id PK
         uuid customer_id FK
         uuid cd_id FK
+        uuid attendant_id FK
         datetime rental_date
         datetime return_date
         decimal amount_paid
@@ -91,6 +92,7 @@ erDiagram
 
     customer ||--|{ rental : "makes"
     cd ||--o{ rental : "rented in"
+    attendant ||--|{ rental : "operates"
     
     rental ||--|{ payment : "is paid via"
 ```

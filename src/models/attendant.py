@@ -12,6 +12,7 @@ class Attendant(BaseModel):
     # Relationships
     person = relationship('Person', back_populates='attendant')
     store = relationship('Store', back_populates='attendants')
+    rentals = relationship('Rental', back_populates='attendant')
 
     def __init__(self, person_id, store_id):
         self.person_id = person_id
