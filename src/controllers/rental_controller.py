@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from flask import jsonify, request
+from datetime import datetime
+from flask import request
 from src.controllers.base_controller import BaseController
 from src.models.rental import Rental
 from src.models.customer import Customer
@@ -72,7 +72,7 @@ class RentalController(BaseController):
 
         return {"valid": len(errors) == 0, "errors": errors}
 
-    def _validate_update_data(self, data, item):
+    def _validate_update_data(self, data, rental):
         errors = []
 
         # Validate customer_id if provided
@@ -112,7 +112,7 @@ class RentalController(BaseController):
                 )
 
                 # Check if return_date exists and rental_date is before return_date
-                if item.return_date and rental_date >= item.return_date:
+                if rental.return_date and rental_date >= rental.return_date:
                     errors.append("Rental date must be before return date")
             except (ValueError, TypeError):
                 errors.append(
@@ -127,7 +127,7 @@ class RentalController(BaseController):
                 )
 
                 # Check if return_date is after rental_date
-                if return_date <= item.rental_date:
+                if return_date <= rental.rental_date:
                     errors.append("Return date must be after rental date")
             except (ValueError, TypeError):
                 errors.append(
@@ -140,20 +140,22 @@ class RentalController(BaseController):
         try:
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return {"error": "No data provided"}, 400
 
             # Validate data
             validation = self._validate_create_data(data)
             if not validation["valid"]:
                 return (
-                    jsonify(
-                        {"error": "Validation failed", "details": validation["errors"]}
-                    ),
+                    {"error": "Validation failed", "details": validation["errors"]},
                     400,
                 )
 
             # Prepare rental data
-            rental_data = {"customer_id": data["customer_id"], "item_id": data["item_id"], "attendant_id": data["attendant_id"]}
+            rental_data = {
+                "customer_id": data["customer_id"],
+                "item_id": data["item_id"],
+                "attendant_id": data["attendant_id"],
+            }
 
             # Add rental_date if provided
             if "rental_date" in data and data["rental_date"]:
@@ -170,32 +172,37 @@ class RentalController(BaseController):
             # Create new rental
             rental = Rental(**rental_data)
 
+            # Update inventory item status to "rented"
+            item = InventoryItem.query.get(data["item_id"])
+            if item:
+                item.status = "rented"
+
             # Add to database
             rental.save()
+            if item:
+                item.save()
 
-            return jsonify(rental.to_dict()), 201
+            return rental.to_dict(), 201
         except ValueError as e:
-            return jsonify({"error": "Invalid data provided", "details": str(e)}), 400
+            return {"error": "Invalid data provided", "details": str(e)}, 400
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500
 
     def update(self, rental_id):
         try:
             rental = Rental.query.get(rental_id)
             if not rental:
-                return jsonify({"error": "Rental not found"}), 404
+                return {"error": "Rental not found"}, 404
 
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return {"error": "No data provided"}, 400
 
             # Validate data
             validation = self._validate_update_data(data, rental)
             if not validation["valid"]:
                 return (
-                    jsonify(
-                        {"error": "Validation failed", "details": validation["errors"]}
-                    ),
+                    {"error": "Validation failed", "details": validation["errors"]},
                     400,
                 )
 
@@ -220,46 +227,49 @@ class RentalController(BaseController):
 
             rental.save()
 
-            return jsonify(rental.to_dict()), 200
+            return rental.to_dict(), 200
         except ValueError as e:
-            return jsonify({"error": "Invalid data provided", "details": str(e)}), 400
+            return {"error": "Invalid data provided", "details": str(e)}, 400
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500
 
     def return_rental(self, rental_id):
         """Mark a rental as returned"""
         try:
             rental = Rental.query.get(rental_id)
             if not rental:
-                return jsonify({"error": "Rental not found"}), 404
+                return {"error": "Rental not found"}, 404
 
             if rental.is_returned():
-                return jsonify({"error": "Rental already returned"}), 400
+                return {"error": "Rental already returned"}, 400
 
+            # Mark rental as returned
             rental.mark_as_returned()
+
+            # Update inventory item status back to "available"
+            item = InventoryItem.query.get(rental.item_id)
+            if item:
+                item.status = "available"
+                item.save()
+
             rental.save()
 
-            return (
-                jsonify(
-                    {"message": "Rental marked as returned", "rental": rental.to_dict()}
-                ),
-                200,
-            )
+            return rental.to_dict(), 200
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500
 
     def get_active_rentals(self):
         """Get all active (not returned) rentals"""
         try:
             active_rentals = Rental.query.filter(Rental.return_date.is_(None)).all()  # type: ignore
-            return jsonify([rental.to_dict() for rental in active_rentals]), 200
+            return [rental.to_dict() for rental in active_rentals], 200
         except Exception as e:
-            return jsonify({"error": "Database error occurred", "details": str(e)}), 500
+            return {"error": "Database error occurred", "details": str(e)}, 500
 
     def get_returned_rentals(self):
         """Get all returned rentals"""
         try:
             returned_rentals = Rental.query.filter(Rental.return_date.isnot(None)).all()  # type: ignore
-            return jsonify([rental.to_dict() for rental in returned_rentals]), 200
+            return [rental.to_dict() for rental in returned_rentals], 200
         except Exception as e:
-            return jsonify({"error": "Database error occurred", "details": str(e)}), 500
+            return {"error": "Database error occurred", "details": str(e)}, 500

@@ -1,5 +1,5 @@
 from src.models.album import Album
-from src.validators import AlbumValidator, ValidationError
+from src.validators import AlbumValidator
 from .base_controller import BaseController
 from src.config.database import db
 

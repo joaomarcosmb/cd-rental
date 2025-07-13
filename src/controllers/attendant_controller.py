@@ -1,8 +1,9 @@
-from flask import jsonify, request
+from flask import request
 from src.controllers.base_controller import BaseController
 from src.models.attendant import Attendant
 from src.models.person import Person
 from src.models.store import Store
+from src.validators.person_validator import PersonValidator
 
 
 class AttendantController(BaseController):
@@ -11,22 +12,6 @@ class AttendantController(BaseController):
 
     def _validate_create_data(self, data):
         errors = []
-
-        # Validate person_id
-        if not data.get("person_id"):
-            errors.append("Person ID is required")
-        else:
-            # Check if person exists
-            person = Person.query.get(data["person_id"])
-            if not person:
-                errors.append("Person not found")
-            else:
-                # Check if person is already an attendant
-                existing_attendant = Attendant.query.filter_by(
-                    person_id=data["person_id"]
-                ).first()
-                if existing_attendant:
-                    errors.append("Person is already an attendant")
 
         # Validate store_id
         if not data.get("store_id"):
@@ -41,26 +26,6 @@ class AttendantController(BaseController):
 
     def _validate_update_data(self, data, item):
         errors = []
-
-        # Validate person_id if provided
-        if "person_id" in data:
-            if not data["person_id"]:
-                errors.append("Person ID is required")
-            else:
-                # Check if person exists
-                person = Person.query.get(data["person_id"])
-                if not person:
-                    errors.append("Person not found")
-                else:
-                    # Check if person is already an attendant (excluding current attendant)
-                    existing_attendant = Attendant.query.filter_by(
-                        person_id=data["person_id"]
-                    ).first()
-                    if (
-                        existing_attendant
-                        and existing_attendant.person_id != item.person_id
-                    ):
-                        errors.append("Person is already an attendant")
 
         # Validate store_id if provided
         if "store_id" in data:
@@ -78,73 +43,92 @@ class AttendantController(BaseController):
         try:
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return {"error": "No data provided"}, 400
 
             # Validate data
             validation = self._validate_create_data(data)
             if not validation["valid"]:
-                return (
-                    jsonify(
-                        {"error": "Validation failed", "details": validation["errors"]}
-                    ),
-                    400,
-                )
+                return {
+                    "error": "Validation failed",
+                    "details": validation["errors"],
+                }, 400
 
-            # Create new attendant
-            attendant = Attendant(
-                person_id=data["person_id"], store_id=data["store_id"]
+            # Create person
+            person = Person(
+                cpf=data.get("cpf"),
+                name=data.get("name"),
+                phone=data.get("phone"),
+                email=data.get("email"),
             )
 
-            # Add to database
+            # Add person to database
+            person.save()
+
+            # Create attendant
+            attendant = Attendant(person_id=person.id, store_id=data["store_id"])
+
+            # Add attendant to database
             attendant.save()
 
-            return jsonify(attendant.to_dict()), 201
+            return attendant.to_dict(), 201
         except ValueError as e:
-            return jsonify({"error": "Invalid data provided", "details": str(e)}), 400
+            return {"error": "Invalid data provided", "details": str(e)}, 400
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500
 
     def update(self, attendant_id):
         try:
             attendant = Attendant.query.get(attendant_id)
             if not attendant:
-                return jsonify({"error": "Attendant not found"}), 404
+                return {"error": "Attendant not found"}, 404
 
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return {"error": "No data provided"}, 400
 
             # Validate data
             validation = self._validate_update_data(data, attendant)
             if not validation["valid"]:
-                return (
-                    jsonify(
-                        {"error": "Validation failed", "details": validation["errors"]}
-                    ),
-                    400,
-                )
+                return {
+                    "error": "Validation failed",
+                    "details": validation["errors"],
+                }, 400
 
-            # Update attendant
-            if "person_id" in data:
-                attendant.person_id = data["person_id"]
+            # Update person data if provided
+            person = Person.query.get(attendant.person_id)
+            if not person:
+                return {"error": "Person not found"}, 404
+
+            if "cpf" in data:
+                person.cpf = PersonValidator.validate_cpf(data["cpf"])
+            if "name" in data:
+                person.name = PersonValidator.validate_name(data["name"])
+            if "phone" in data:
+                person.phone = PersonValidator.validate_phone(data["phone"])
+            if "email" in data:
+                person.email = PersonValidator.validate_email(data["email"])
+
+            person.save()
+
+            # Update attendant data
             if "store_id" in data:
                 attendant.store_id = data["store_id"]
 
             attendant.save()
 
-            return jsonify(attendant.to_dict()), 200
+            return attendant.to_dict(), 200
         except ValueError as e:
-            return jsonify({"error": "Invalid data provided", "details": str(e)}), 400
+            return {"error": "Invalid data provided", "details": str(e)}, 400
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500
 
     def get_all(self):
         try:
             # Get all attendants with their person data
             attendants = Attendant.query.join(Person).all()
-            return jsonify([attendant.to_dict() for attendant in attendants]), 200
+            return [attendant.to_dict() for attendant in attendants]
         except Exception as e:
-            return jsonify({"error": "Database error occurred", "details": str(e)}), 500
+            return {"error": "Database error occurred", "details": str(e)}, 500
 
     def get_by_id(self, attendant_id):
         try:
@@ -153,7 +137,24 @@ class AttendantController(BaseController):
                 Attendant.query.join(Person).filter_by(person_id=attendant_id).first()
             )
             if not attendant:
-                return jsonify({"error": "Attendant not found"}), 404
-            return jsonify(attendant.to_dict()), 200
+                return {"error": "Attendant not found"}, 404
+            return attendant.to_dict()
         except Exception as e:
-            return jsonify({"error": "Database error occurred", "details": str(e)}), 500
+            return {"error": "Database error occurred", "details": str(e)}, 500
+
+    def delete(self, attendant_id):
+        try:
+            attendant = Attendant.query.get(attendant_id)
+            if not attendant:
+                return {"error": "Attendant not found"}, 404
+
+            # Get the person associated with this attendant
+            person = Person.query.get(attendant.person_id)
+
+            # Delete the person
+            if person:
+                person.delete()
+
+            return {"message": "Attendant deleted successfully"}, 200
+        except Exception as e:
+            return {"error": "Database error occurred", "details": str(e)}, 500

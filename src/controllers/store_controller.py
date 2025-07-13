@@ -1,5 +1,5 @@
 import re
-from flask import jsonify, request
+from flask import request
 from src.controllers.base_controller import BaseController
 from src.models.store import Store
 
@@ -66,15 +66,13 @@ class StoreController(BaseController):
         try:
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return {"error": "No data provided"}, 400
 
             # Validate data
             validation = self._validate_create_data(data)
             if not validation["valid"]:
                 return (
-                    jsonify(
-                        {"error": "Validation failed", "details": validation["errors"]}
-                    ),
+                    {"error": "Validation failed", "details": validation["errors"]},
                     400,
                 )
 
@@ -84,29 +82,27 @@ class StoreController(BaseController):
             # Add to database
             store.save()
 
-            return jsonify(store.to_dict()), 201
+            return store.to_dict(), 201
         except ValueError as e:
-            return jsonify({"error": "Invalid data provided", "details": str(e)}), 400
+            return {"error": "Invalid data provided", "details": str(e)}, 400
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500
 
     def update(self, store_id):
         try:
             store = Store.query.get(store_id)
             if not store:
-                return jsonify({"error": "Store not found"}), 404
+                return {"error": "Store not found"}, 404
 
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return {"error": "No data provided"}, 400
 
             # Validate data
             validation = self._validate_update_data(data, store)
             if not validation["valid"]:
                 return (
-                    jsonify(
-                        {"error": "Validation failed", "details": validation["errors"]}
-                    ),
+                    {"error": "Validation failed", "details": validation["errors"]},
                     400,
                 )
 
@@ -118,8 +114,8 @@ class StoreController(BaseController):
 
             store.save()
 
-            return jsonify(store.to_dict()), 200
+            return store.to_dict(), 200
         except ValueError as e:
-            return jsonify({"error": "Invalid data provided", "details": str(e)}), 400
+            return {"error": "Invalid data provided", "details": str(e)}, 400
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500

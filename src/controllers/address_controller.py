@@ -1,5 +1,5 @@
 import re
-from flask import jsonify, request
+from flask import request
 from src.controllers.base_controller import BaseController
 from src.models.address import Address
 
@@ -52,13 +52,14 @@ class AddressController(BaseController):
             except:
                 errors.append("Invalid ZIP code format")
 
-        # Validate store_id
-        if not data.get("store_id"):
-            errors.append("Store ID is required")
-
-        # Validate customer_id
-        if not data.get("customer_id"):
-            errors.append("Customer ID is required")
+        # Validate that exactly one of store_id or customer_id is provided
+        store_id = data.get("store_id")
+        customer_id = data.get("customer_id")
+        
+        if (store_id is None and customer_id is None):
+            errors.append("Either store_id or customer_id must be provided")
+        elif (store_id is not None and customer_id is not None):
+            errors.append("Address cannot belong to both a store and a customer")
 
         return {"valid": len(errors) == 0, "errors": errors}
 
@@ -112,15 +113,15 @@ class AddressController(BaseController):
                 except:
                     errors.append("Invalid ZIP code format")
 
-        # Validate store_id if provided
-        if "store_id" in data:
-            if not data["store_id"]:
-                errors.append("Store ID is required")
-
-        # Validate customer_id if provided
-        if "customer_id" in data:
-            if not data["customer_id"]:
-                errors.append("Customer ID is required")
+        # Validate that if both store_id and customer_id are being updated, exactly one should be provided
+        if "store_id" in data and "customer_id" in data:
+            store_id = data.get("store_id")
+            customer_id = data.get("customer_id")
+            
+            if (store_id is None and customer_id is None):
+                errors.append("Either store_id or customer_id must be provided")
+            elif (store_id is not None and customer_id is not None):
+                errors.append("Address cannot belong to both a store and a customer")
 
         return {"valid": len(errors) == 0, "errors": errors}
 
@@ -128,15 +129,13 @@ class AddressController(BaseController):
         try:
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return {"error": "No data provided"}, 400
 
             # Validate data
             validation = self._validate_create_data(data)
             if not validation["valid"]:
                 return (
-                    jsonify(
-                        {"error": "Validation failed", "details": validation["errors"]}
-                    ),
+                    {"error": "Validation failed", "details": validation["errors"]},
                     400,
                 )
 
@@ -148,36 +147,34 @@ class AddressController(BaseController):
                 city=data["city"],
                 state=data["state"],
                 zip_code=data["zip_code"],
-                store_id=data["store_id"],
-                customer_id=data["customer_id"],
+                store_id=data.get("store_id"),
+                customer_id=data.get("customer_id"),
             )
 
             # Add to database
             address.save()
 
-            return jsonify(address.to_dict()), 201
+            return address.to_dict(), 201
         except ValueError as e:
-            return jsonify({"error": "Invalid data provided", "details": str(e)}), 400
+            return {"error": "Invalid data provided", "details": str(e)}, 400
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500
 
     def update(self, address_id):
         try:
             address = Address.query.get(address_id)
             if not address:
-                return jsonify({"error": "Address not found"}), 404
+                return {"error": "Address not found"}, 404
 
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return {"error": "No data provided"}, 400
 
             # Validate data
             validation = self._validate_update_data(data, address)
             if not validation["valid"]:
                 return (
-                    jsonify(
-                        {"error": "Validation failed", "details": validation["errors"]}
-                    ),
+                    {"error": "Validation failed", "details": validation["errors"]},
                     400,
                 )
 
@@ -203,8 +200,8 @@ class AddressController(BaseController):
 
             address.save()
 
-            return jsonify(address.to_dict()), 200
+            return address.to_dict(), 200
         except ValueError as e:
-            return jsonify({"error": "Invalid data provided", "details": str(e)}), 400
+            return {"error": "Invalid data provided", "details": str(e)}, 400
         except Exception as e:
-            return jsonify({"error": "An error occurred", "details": str(e)}), 500
+            return {"error": "An error occurred", "details": str(e)}, 500
