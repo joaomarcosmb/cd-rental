@@ -151,6 +151,241 @@ erDiagram
     rental ||--|{ payment : "is paid via"
 ```
 
+### DDL Script
+```sql
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create ENUM types
+CREATE TYPE inventory_status AS ENUM ('available', 'rented', 'maintenance', 'damaged', 'lost');
+CREATE TYPE payment_method AS ENUM ('cash', 'credit_card', 'debit_card', 'pix');
+CREATE TYPE payment_status AS ENUM ('pending', 'completed', 'failed', 'refunded');
+
+-- Create tables
+
+-- Person table (base table for customer and attendant)
+CREATE TABLE persons (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cpf VARCHAR(11) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(15) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Store table
+CREATE TABLE stores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cnpj VARCHAR(14) UNIQUE NOT NULL,
+    trade_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Customer table (inherits from person)
+CREATE TABLE customers (
+    person_id UUID PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_customer_person 
+        FOREIGN KEY (person_id) 
+        REFERENCES persons(id) 
+        ON DELETE CASCADE
+);
+
+-- Attendant table (inherits from person)
+CREATE TABLE attendants (
+    person_id UUID PRIMARY KEY,
+    store_id UUID NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_attendant_person 
+        FOREIGN KEY (person_id) 
+        REFERENCES persons(id) 
+        ON DELETE CASCADE,
+    
+    CONSTRAINT fk_attendant_store 
+        FOREIGN KEY (store_id) 
+        REFERENCES stores(id) 
+        ON DELETE RESTRICT
+);
+
+-- Address table
+CREATE TABLE addresses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    street VARCHAR(200) NOT NULL,
+    number VARCHAR(10) NOT NULL,
+    neighborhood VARCHAR(100) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(2) NOT NULL,
+    zip_code VARCHAR(8) NOT NULL,
+    store_id UUID,
+    customer_id UUID,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_address_store 
+        FOREIGN KEY (store_id) 
+        REFERENCES stores(id) 
+        ON DELETE CASCADE,
+    
+    CONSTRAINT fk_address_customer 
+        FOREIGN KEY (customer_id) 
+        REFERENCES customers(person_id) 
+        ON DELETE CASCADE,
+    
+    -- Ensure address belongs to either store or customer (not both)
+    CONSTRAINT chk_address_owner 
+        CHECK (
+            (store_id IS NOT NULL AND customer_id IS NULL) OR 
+            (store_id IS NULL AND customer_id IS NOT NULL)
+        )
+);
+
+-- Album table
+CREATE TABLE albums (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(200) NOT NULL,
+    rental_price DECIMAL(10,2) NOT NULL CHECK (rental_price > 0),
+    artist VARCHAR(200) NOT NULL,
+    genre VARCHAR(200) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Inventory item table
+CREATE TABLE inventory_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    album_id UUID NOT NULL,
+    store_id UUID NOT NULL,
+    status inventory_status NOT NULL DEFAULT 'available',
+    barcode VARCHAR(200) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_inventory_album 
+        FOREIGN KEY (album_id) 
+        REFERENCES albums(id) 
+        ON DELETE RESTRICT,
+    
+    CONSTRAINT fk_inventory_store 
+        FOREIGN KEY (store_id) 
+        REFERENCES stores(id) 
+        ON DELETE RESTRICT
+);
+
+-- Rental table
+CREATE TABLE rentals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID NOT NULL,
+    item_id UUID NOT NULL,
+    attendant_id UUID NOT NULL,
+    rental_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    return_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_rental_customer 
+        FOREIGN KEY (customer_id) 
+        REFERENCES customers(person_id) 
+        ON DELETE RESTRICT,
+    
+    CONSTRAINT fk_rental_item 
+        FOREIGN KEY (item_id) 
+        REFERENCES inventory_items(id) 
+        ON DELETE RESTRICT,
+    
+    CONSTRAINT fk_rental_attendant 
+        FOREIGN KEY (attendant_id) 
+        REFERENCES attendants(person_id) 
+        ON DELETE RESTRICT,
+    
+    -- Ensure return_date is after rental_date when set
+    CONSTRAINT chk_return_date 
+        CHECK (return_date IS NULL OR return_date > rental_date)
+);
+
+-- Payment table
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    rental_id UUID NOT NULL,
+    amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
+    payment_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    payment_method payment_method NOT NULL,
+    status payment_status NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_payment_rental 
+        FOREIGN KEY (rental_id) 
+        REFERENCES rentals(id) 
+        ON DELETE RESTRICT
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_person_cpf ON persons(cpf);
+CREATE INDEX idx_person_email ON persons(email);
+CREATE INDEX idx_store_cnpj ON stores(cnpj);
+CREATE INDEX idx_inventory_barcode ON inventory_items(barcode);
+CREATE INDEX idx_inventory_status ON inventory_items(status);
+CREATE INDEX idx_rental_customer ON rentals(customer_id);
+CREATE INDEX idx_rental_item ON rentals(item_id);
+CREATE INDEX idx_rental_attendant ON rentals(attendant_id);
+CREATE INDEX idx_rental_date ON rentals(rental_date);
+CREATE INDEX idx_payment_rental ON payments(rental_id);
+CREATE INDEX idx_payment_status ON payments(status);
+CREATE INDEX idx_address_store ON addresses(store_id);
+CREATE INDEX idx_address_customer ON addresses(customer_id);
+
+-- Create triggers for updating timestamps
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_person_updated_at 
+    BEFORE UPDATE ON persons 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_store_updated_at 
+    BEFORE UPDATE ON stores 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_customer_updated_at 
+    BEFORE UPDATE ON customers 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_attendant_updated_at 
+    BEFORE UPDATE ON attendants 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_address_updated_at 
+    BEFORE UPDATE ON addresses 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_album_updated_at 
+    BEFORE UPDATE ON albums 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_inventory_item_updated_at 
+    BEFORE UPDATE ON inventory_items 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_rental_updated_at 
+    BEFORE UPDATE ON rentals 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_payment_updated_at 
+    BEFORE UPDATE ON payments 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+```
+
 ### Database Schema Details
 
 #### Core Design Principles
@@ -169,126 +404,6 @@ erDiagram
 - **Customer → Rental**: One-to-many (customer makes multiple rentals)
 - **InventoryItem → Rental**: One-to-many (item can be rented multiple times)
 - **Rental → Payment**: One-to-many (rental can have multiple payments)
-
-## API Endpoints
-
-All endpoints follow RESTful conventions with the base URL pattern `/api/{resource}`.
-
-### Person Endpoints
-**Base URL**: `/api/persons`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all persons |
-| GET | `/{id}` | Get person by ID |
-| POST | `/` | Create new person |
-| PUT | `/{id}` | Update person |
-| DELETE | `/{id}` | Delete person |
-
-### Customer Endpoints
-**Base URL**: `/api/customers`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all customers |
-| GET | `/{id}` | Get customer by ID |
-| POST | `/` | Create new customer |
-| PUT | `/{id}` | Update customer |
-| DELETE | `/{id}` | Delete customer |
-
-### Attendant Endpoints
-**Base URL**: `/api/attendants`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all attendants |
-| GET | `/{id}` | Get attendant by ID |
-| POST | `/` | Create new attendant |
-| PUT | `/{id}` | Update attendant |
-| DELETE | `/{id}` | Delete attendant |
-
-### Store Endpoints
-**Base URL**: `/api/stores`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all stores |
-| GET | `/{id}` | Get store by ID |
-| POST | `/` | Create new store |
-| PUT | `/{id}` | Update store |
-| DELETE | `/{id}` | Delete store |
-
-### Address Endpoints
-**Base URL**: `/api/addresses`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all addresses |
-| GET | `/{id}` | Get address by ID |
-| POST | `/` | Create new address |
-| PUT | `/{id}` | Update address |
-| DELETE | `/{id}` | Delete address |
-
-### Album Endpoints
-**Base URL**: `/api/albums`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all albums |
-| GET | `/{id}` | Get album by ID |
-| POST | `/` | Create new album |
-| PUT | `/{id}` | Update album |
-| DELETE | `/{id}` | Delete album |
-| GET | `/search?title={title}&artist={artist}&genre={genre}` | Search albums |
-| GET | `/artist/{artist}` | Get albums by artist |
-| GET | `/genre/{genre}` | Get albums by genre |
-
-### Inventory Item Endpoints
-**Base URL**: `/api/inventory-items`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all inventory items |
-| GET | `/{id}` | Get item by ID |
-| POST | `/` | Create new inventory item |
-| PUT | `/{id}` | Update inventory item |
-| DELETE | `/{id}` | Delete inventory item |
-| GET | `/barcode/{barcode}` | Get item by barcode |
-| GET | `/store/{store_id}` | Get items by store |
-| GET | `/album/{album_id}` | Get items by album |
-| GET | `/status/{status}` | Get items by status |
-| GET | `/available` | Get available items |
-| POST | `/{id}/rent` | Mark item as rented |
-| POST | `/{id}/return` | Mark item as returned |
-
-### Rental Endpoints
-**Base URL**: `/api/rentals`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all rentals |
-| GET | `/{id}` | Get rental by ID |
-| POST | `/` | Create new rental |
-| PUT | `/{id}` | Update rental |
-| DELETE | `/{id}` | Delete rental |
-| POST | `/{id}/return` | Mark rental as returned |
-| GET | `/active` | Get active rentals |
-| GET | `/returned` | Get returned rentals |
-
-### Payment Endpoints
-**Base URL**: `/api/payments`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Get all payments |
-| GET | `/{id}` | Get payment by ID |
-| POST | `/` | Create new payment |
-| PUT | `/{id}` | Update payment |
-| DELETE | `/{id}` | Delete payment |
-| POST | `/{id}/complete` | Mark payment as completed |
-| POST | `/{id}/fail` | Mark payment as failed |
-| GET | `/status/{status}` | Get payments by status |
-| GET | `/method/{method}` | Get payments by method |
 
 ## Setup and Installation
 
@@ -320,4 +435,134 @@ docker-compose up -d
 python app.py
 ```
 
-The API will be available at `http://localhost:5000`
+The API will be available at `http://localhost:5000`. Swagger UI will be available at `http://localhost:5000/docs/`, where you can test the endpoints.
+
+## Example usage
+
+### Step 1: Create a Store
+
+```bash
+curl -X POST http://localhost:5001/api/stores \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cnpj": "12345678000195",
+    "trade_name": "Best Music Store"
+  }'
+```
+
+### Step 2: Create Store Address
+
+```bash
+curl -X POST http://localhost:5001/api/addresses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "street": "Rua Pernambuco",
+    "number": "1440",
+    "neighborhood": "Pici",
+    "city": "Fortaleza",
+    "state": "CE",
+    "zip_code": "60160000",
+    "store_id": "STORE_ID_HERE"
+  }'
+```
+
+### Step 3: Create an Attendant 
+
+```bash
+curl -X POST http://localhost:5001/api/attendants \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cpf": "12345678901",
+    "name": "Eduarda Silveira",
+    "phone": "85990116278",
+    "email": "eduarda.silveira@bestmusicstore.com",
+    "store_id": "STORE_ID_HERE"
+  }'
+```
+
+### Step 4: Create an Album
+
+```bash
+curl -X POST http://localhost:5001/api/albums \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "1989 - Taylor's Version",
+    "artist": "Taylor Swift",
+    "genre": "Pop",
+    "rental_price": 29.99
+  }'
+```
+
+### Step 5: Create Inventory Item (CD Copy)
+
+```bash
+curl -X POST http://localhost:5001/api/inventory-items \
+  -H "Content-Type: application/json" \
+  -d '{
+    "barcode": "123456789012",
+    "album_id": "ALBUM_ID_HERE",
+    "store_id": "STORE_ID_HERE",
+    "status": "available"
+  }'
+```
+
+### Step 6: Create Customer (Signup)
+
+```bash
+curl -X POST http://localhost:5001/api/customers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cpf": "98765432100",
+    "name": "João Pereira",
+    "phone": "85990636278",
+    "email": "joao.pereira@email.com"
+  }'
+```
+
+### Step 7: Create Customer Address
+
+```bash
+curl -X POST http://localhost:5001/api/addresses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "street": "Rua 862",
+    "number": "281",
+    "neighborhood": "Conjunto Esperança",
+    "city": "Fortaleza",
+    "state": "CE",
+    "zip_code": "60160000",
+    "customer_id": "CUSTOMER_ID_HERE"
+  }'
+```
+
+### Step 8: Create Rental
+
+```bash
+curl -X POST http://localhost:5001/api/rentals \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "CUSTOMER_ID_HERE",
+    "item_id": "ITEM_ID_HERE",
+    "attendant_id": "ATTENDANT_ID_HERE"
+  }'
+```
+
+### Step 9: Create Payment
+
+```bash
+curl -X POST http://localhost:5001/api/payments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rental_id": "RENTAL_ID_HERE",
+    "amount": 29.99,
+    "payment_method": "pix",
+    "status": "completed"
+  }'
+```
+
+### Step 10: Return the CD
+```bash
+curl -X POST http://localhost:5001/api/rentals/RENTAL_ID_HERE/return \
+  -H "Content-Type: application/json" \
+  -d ''
+```
