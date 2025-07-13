@@ -2,7 +2,7 @@ from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, String, Uuid, ForeignKey
 from sqlalchemy.orm import relationship
 from .base import BaseModel
-from validators import AddressValidator, ValidationError
+from src.validators import AddressValidator, ValidationError
 
 
 class Address(BaseModel):
@@ -16,7 +16,7 @@ class Address(BaseModel):
     state = Column(String(2), nullable=False)
     zip_code = Column(String(8), nullable=False)
     store_id = Column(Uuid, ForeignKey("stores.id"), nullable=False)
-    customer_id = Column(Uuid, ForeignKey("customers.id"), nullable=False)
+    customer_id = Column(Uuid, ForeignKey("customers.person_id"), nullable=False)
 
     # Relationships
     store = relationship("Store", back_populates="address")

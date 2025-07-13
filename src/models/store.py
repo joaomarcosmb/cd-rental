@@ -3,7 +3,7 @@ from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, String, Uuid
 from sqlalchemy.orm import relationship
 from .base import BaseModel
-from validators import StoreValidator, ValidationError
+from src.validators import StoreValidator, ValidationError
 
 
 class Store(BaseModel):

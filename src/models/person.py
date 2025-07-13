@@ -3,7 +3,7 @@ from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, String, Uuid
 from sqlalchemy.orm import relationship
 from .base import BaseModel
-from validators import PersonValidator, ValidationError
+from src.validators import PersonValidator, ValidationError
 
 
 class Person(BaseModel):
@@ -22,7 +22,7 @@ class Person(BaseModel):
     __table_args__ = (
         CheckConstraint("length(cpf) = 11", name="check_person_cpf_length"),
         CheckConstraint("length(name) >= 2", name="check_person_name_length"),
-        CheckConstraint('email LIKE "%@%.%"', name="check_person_email_format"),
+        CheckConstraint("email LIKE '%@%.%'", name="check_person_email_format"),
     )
 
     def __init__(self, cpf, name, phone, email):

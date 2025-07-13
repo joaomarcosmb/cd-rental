@@ -2,7 +2,7 @@ from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, String, Uuid, Numeric
 from sqlalchemy.orm import relationship
 from .base import BaseModel
-from validators import AlbumValidator, ValidationError
+from src.validators import AlbumValidator, ValidationError
 
 
 class Album(BaseModel):

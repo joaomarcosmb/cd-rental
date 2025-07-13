@@ -11,6 +11,7 @@ class Customer(BaseModel):
     # Relationships
     person = relationship('Person', back_populates='customer')
     rentals = relationship('Rental', back_populates='customer', lazy='dynamic')
+    address = relationship('Address', back_populates='customer')
 
     def __init__(self, person_id):
         self.person_id = person_id

@@ -2,7 +2,11 @@ from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, Enum, ForeignKey, String, Uuid
 from sqlalchemy.orm import relationship
 from .base import BaseModel
-from validators import InventoryItemValidator, ValidationError
+from src.validators import InventoryItemValidator, ValidationError
+
+VALID_STATUSES = ["available", "rented", "maintenance", "damaged", "lost"]
+
+status_enum = Enum(*VALID_STATUSES, name="status_enum")
 
 
 class InventoryItem(BaseModel):
@@ -11,9 +15,7 @@ class InventoryItem(BaseModel):
     id = Column(Uuid, primary_key=True, default=uuid4)
     album_id = Column(Uuid, ForeignKey("albums.id"), nullable=False)
     store_id = Column(Uuid, ForeignKey("stores.id"), nullable=False)
-    status = Column(
-        Enum("available", "rented", "maintenance", "damaged", "lost"), nullable=False
-    )
+    status = Column(status_enum, nullable=False)
     barcode = Column(String(200), nullable=False, unique=True)
 
     # Relationships

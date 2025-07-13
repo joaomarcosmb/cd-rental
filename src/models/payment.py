@@ -11,25 +11,24 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from .base import BaseModel
-from validators import PaymentValidator, ValidationError
+from src.validators import PaymentValidator, ValidationError
+
+VALID_PAYMENT_METHODS = ["cash", "credit_card", "debit_card", "pix"]
+VALID_STATUSES = ["pending", "completed", "failed", "refunded"]
+
+payment_method_enum = Enum(*VALID_PAYMENT_METHODS, name="payment_method_enum")
+payment_status_enum = Enum(*VALID_STATUSES, name="payment_status_enum")
 
 
 class Payment(BaseModel):
     __tablename__ = "payments"
 
-    VALID_PAYMENT_METHODS = ["cash", "credit_card", "debit_card", "pix"]
-    VALID_STATUSES = ["pending", "completed", "failed", "refunded"]
-    VALID_PAYMENT_METHODS_ENUM = Enum(
-        *VALID_PAYMENT_METHODS, name="payment_method_enum"
-    )
-    VALID_STATUSES_ENUM = Enum(*VALID_STATUSES, name="status_enum")
-
     id = Column(Uuid, primary_key=True, default=uuid4)
     rental_id = Column(Uuid, ForeignKey("rentals.id"), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
     payment_date = Column(DateTime, nullable=False, default=datetime.now(timezone.utc))
-    payment_method = Column(VALID_PAYMENT_METHODS_ENUM, nullable=False)
-    status = Column(VALID_STATUSES_ENUM, nullable=False)
+    payment_method = Column(payment_method_enum, nullable=False)
+    status = Column(payment_status_enum, nullable=False)
 
     # Relationships
     rental = relationship("Rental", back_populates="payments")
