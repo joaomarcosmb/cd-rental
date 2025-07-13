@@ -8,6 +8,14 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: rental_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/bitnami/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rental_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
 volumes:
+  postgres_data:
