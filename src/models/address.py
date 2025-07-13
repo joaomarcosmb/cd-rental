@@ -15,8 +15,8 @@ class Address(BaseModel):
     city = Column(String(100), nullable=False)
     state = Column(String(2), nullable=False)
     zip_code = Column(String(8), nullable=False)
-    store_id = Column(Uuid, ForeignKey("stores.id"), nullable=False)
-    customer_id = Column(Uuid, ForeignKey("customers.person_id"), nullable=False)
+    store_id = Column(Uuid, ForeignKey("stores.id"), nullable=True)
+    customer_id = Column(Uuid, ForeignKey("customers.person_id"), nullable=True)
 
     # Relationships
     store = relationship("Store", back_populates="address")
@@ -29,11 +29,19 @@ class Address(BaseModel):
         CheckConstraint("length(city) >= 2", name="check_city_length"),
         CheckConstraint("length(state) = 2", name="check_state_length"),
         CheckConstraint("length(zip_code) = 8", name="check_zip_code_length"),
+        CheckConstraint(
+            "(store_id IS NOT NULL AND customer_id IS NULL) OR (store_id IS NULL AND customer_id IS NOT NULL)",
+            name="chk_address_owner"
+        ),
     )
 
     def __init__(
-        self, street, number, neighborhood, city, state, zip_code, store_id, customer_id
+        self, street, number, neighborhood, city, state, zip_code, store_id=None, customer_id=None
     ):
+        # Validate that only one of store_id or customer_id is provided
+        if (store_id is None and customer_id is None) or (store_id is not None and customer_id is not None):
+            raise ValueError("Address must belong to either a store OR a customer (not both or neither)")
+
         try:
             validated_data = AddressValidator.validate_address_data(
                 street, number, neighborhood, city, state, zip_code

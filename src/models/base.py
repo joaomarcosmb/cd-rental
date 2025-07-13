@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 from sqlalchemy import Column, DateTime
 from src.config.database import db
 
@@ -35,6 +36,8 @@ class BaseModel(db.Model):
                 value = getattr(self, column.name)
                 if isinstance(value, datetime):
                     value = value.isoformat()
+                elif isinstance(value, UUID):
+                    value = str(value)
                 data[column.name] = value
 
         return data

@@ -1,4 +1,3 @@
-import re
 from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, String, Uuid
 from sqlalchemy.orm import relationship
@@ -16,8 +15,8 @@ class Person(BaseModel):
     email = Column(String(100), nullable=False, unique=True)
 
     # Relationships
-    customer = relationship("Customer", back_populates="person", uselist=False)
-    attendant = relationship("Attendant", back_populates="person", uselist=False)
+    customer = relationship("Customer", back_populates="person", uselist=False, cascade="all, delete-orphan")
+    attendant = relationship("Attendant", back_populates="person", uselist=False, cascade="all, delete-orphan")
 
     __table_args__ = (
         CheckConstraint("length(cpf) = 11", name="check_person_cpf_length"),
@@ -49,7 +48,7 @@ class Person(BaseModel):
     def format_phone(self):
         phone_str = str(self.phone)
         if len(phone_str) == 11:
-            return f"({phone_str[:2]}) 9 {phone_str[2:4]}-{phone_str[4:]}"
+            return f"({phone_str[:2]}) {phone_str[2:3]} {phone_str[3:7]}-{phone_str[7:]}"
         return phone_str
 
     def to_dict(self, exclude_fields=None):
