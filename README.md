@@ -12,22 +12,14 @@
 - [Design Patterns](#design-patterns)
 - [Database Design](#database-design)
   - [ER Diagram](#er-diagram)
+  - [DDL Script](#ddl-script)
   - [Database Schema Details](#database-schema-details)
     - [Core Design Principles](#core-design-principles)
     - [Key Relationships](#key-relationships)
-- [API Endpoints](#api-endpoints)
-  - [Person Endpoints](#person-endpoints)
-  - [Customer Endpoints](#customer-endpoints)
-  - [Attendant Endpoints](#attendant-endpoints)
-  - [Store Endpoints](#store-endpoints)
-  - [Address Endpoints](#address-endpoints)
-  - [Album Endpoints](#album-endpoints)
-  - [Inventory Item Endpoints](#inventory-item-endpoints)
-  - [Rental Endpoints](#rental-endpoints)
-  - [Payment Endpoints](#payment-endpoints)
 - [Setup and Installation](#setup-and-installation)
   - [Prerequisites](#prerequisites)
   - [Installation Steps](#installation-steps)
+- [Example usage](#example-usage)
 
 ## Overview
 This is a Flask-based REST API for managing an album rental store system. The application manages customers, stores, albums, inventory items, rentals, and payments with a focus on robust data validation and relationship management.
@@ -37,6 +29,7 @@ This is a Flask-based REST API for managing an album rental store system. The ap
 - SQLAlchemy ORM
 - PostgreSQL
 - Flask-Migrate
+- Flask-RestX
 - Docker
 
 ## Project Structure
