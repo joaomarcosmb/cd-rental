@@ -10,7 +10,7 @@ from sqlalchemy import (
     Enum,
 )
 from sqlalchemy.orm import relationship
-from models.base import BaseModel
+from .base import BaseModel
 from validators import PaymentValidator, ValidationError
 
 

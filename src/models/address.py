@@ -1,7 +1,7 @@
 from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, String, Uuid, ForeignKey
 from sqlalchemy.orm import relationship
-from models.base import BaseModel
+from .base import BaseModel
 from validators import AddressValidator, ValidationError
 
 
@@ -16,9 +16,11 @@ class Address(BaseModel):
     state = Column(String(2), nullable=False)
     zip_code = Column(String(8), nullable=False)
     store_id = Column(Uuid, ForeignKey("stores.id"), nullable=False)
+    customer_id = Column(Uuid, ForeignKey("customers.id"), nullable=False)
 
     # Relationships
     store = relationship("Store", back_populates="address")
+    customer = relationship("Customer", back_populates="address")
 
     __table_args__ = (
         CheckConstraint("length(street) >= 2", name="check_street_length"),
@@ -29,7 +31,9 @@ class Address(BaseModel):
         CheckConstraint("length(zip_code) = 8", name="check_zip_code_length"),
     )
 
-    def __init__(self, street, number, neighborhood, city, state, zip_code, store_id):
+    def __init__(
+        self, street, number, neighborhood, city, state, zip_code, store_id, customer_id
+    ):
         try:
             validated_data = AddressValidator.validate_address_data(
                 street, number, neighborhood, city, state, zip_code
@@ -42,6 +46,7 @@ class Address(BaseModel):
             self.state = validated_data["state"]
             self.zip_code = validated_data["zip_code"]
             self.store_id = store_id
+            self.customer_id = customer_id
 
         except ValidationError as e:
             # Convert ValidationError to ValueError for backward compatibility

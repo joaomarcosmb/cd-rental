@@ -2,11 +2,12 @@ from .base_validator import BaseValidator, ValidationError
 from .person_validator import PersonValidator
 from .store_validator import StoreValidator
 from .address_validator import AddressValidator
-from .artist_validator import ArtistValidator
-from .genre_validator import GenreValidator
-from .cd_validator import CdValidator
-from .cd_status_validator import CdStatusValidator
+from .album_validator import AlbumValidator
 from .payment_validator import PaymentValidator
+from .inventory_item_validator import InventoryItemValidator
+from .customer_validator import CustomerValidator
+from .attendant_validator import AttendantValidator
+from .rental_validator import RentalValidator
 
 __all__ = [
     "BaseValidator",
@@ -14,9 +15,10 @@ __all__ = [
     "PersonValidator",
     "StoreValidator",
     "AddressValidator",
-    "ArtistValidator",
-    "GenreValidator",
-    "CdValidator",
-    "CdStatusValidator",
+    "AlbumValidator",
     "PaymentValidator",
+    "InventoryItemValidator",
+    "CustomerValidator",
+    "AttendantValidator",
+    "RentalValidator",
 ]

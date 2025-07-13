@@ -2,7 +2,7 @@ import re
 from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, String, Uuid
 from sqlalchemy.orm import relationship
-from models.base import BaseModel
+from .base import BaseModel
 from validators import PersonValidator, ValidationError
 
 

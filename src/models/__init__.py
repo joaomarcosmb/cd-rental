@@ -4,10 +4,8 @@ from .customer import Customer
 from .store import Store
 from .address import Address
 from .attendant import Attendant
-from .artist import Artist
-from .genre import Genre
-from .cd_status import CdStatus
-from .cd import Cd
+from .album import Album
+from .inventory_item import InventoryItem
 from .rental import Rental
 from .payment import Payment
 
@@ -18,10 +16,8 @@ __all__ = [
     'Store',
     'Address',
     'Attendant',
-    'Artist',
-    'Genre',
-    'CdStatus',
-    'Cd',
+    'Album',
+    'InventoryItem',
     'Rental',
     'Payment'
 ] 

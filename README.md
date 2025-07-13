@@ -33,41 +33,32 @@ erDiagram
         string state
         string zip_code
         uuid store_id FK
+        uuid customer_id FK
     }
 
-    cd {
+    album {
         uuid id PK
         string title
         decimal rental_price
-        uuid artist_id FK
-        uuid genre_id FK
-        uuid status_id FK
+        string artist
+        string genre
+    }
+
+    inventory_item {
+        uuid id PK
+        uuid album_id FK
         uuid store_id FK
+        enum status "available, rented, maintenance, damaged, lost"
+        string barcode UK
     }
 
     rental {
         uuid id PK
         uuid customer_id FK
-        uuid cd_id FK
+        uuid item_id FK
         uuid attendant_id FK
         datetime rental_date
         datetime return_date
-        decimal amount_paid
-    }
-
-    artist {
-        uuid id PK
-        string name
-    }
-
-    genre {
-        uuid id PK
-        string description
-    }
-
-    cd_status {
-        uuid id PK
-        enum description "available, rented, maintenance, damaged, lost"
     }
 
     payment {
@@ -81,18 +72,17 @@ erDiagram
 
     person ||--|| customer : "is a"
     person ||--|| attendant : "is a"
+
+    customer ||--|{ rental : "makes"
+    customer ||--|{ address : "has"
+    attendant ||--|{ rental : "operates"
     
     store ||--|{ attendant : "employs"
     store ||--|| address : "has"
-    store ||--|{ cd : "owns"
+    store ||--|{ inventory_item : "stocks"
 
-    artist ||--|{ cd : "records"
-    genre ||--|{ cd : "belongs to"
-    cd_status ||--|{ cd : "has status"
-
-    customer ||--|{ rental : "makes"
-    cd ||--o{ rental : "rented in"
-    attendant ||--|{ rental : "operates"
+    album ||--|{ inventory_item : "has"
+    inventory_item ||--o{ rental : "is rented in"
     
     rental ||--|{ payment : "is paid via"
 ```

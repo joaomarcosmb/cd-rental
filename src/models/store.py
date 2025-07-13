@@ -2,7 +2,7 @@ import re
 from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, String, Uuid
 from sqlalchemy.orm import relationship
-from models.base import BaseModel
+from .base import BaseModel
 from validators import StoreValidator, ValidationError
 
 
@@ -16,7 +16,7 @@ class Store(BaseModel):
     # Relationships
     attendants = relationship("Attendant", back_populates="store", lazy="dynamic")
     address = relationship("Address", back_populates="store", uselist=False)
-    cds = relationship("Cd", back_populates="store", lazy="dynamic")
+    inventory_items = relationship("InventoryItem", back_populates="store", lazy="dynamic")
 
     __table_args__ = (
         CheckConstraint("length(cnpj) = 14", name="check_cnpj_length"),

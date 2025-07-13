@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Uuid, ForeignKey
 from sqlalchemy.orm import relationship
-from models.base import BaseModel
+from .base import BaseModel
 
 
 class Customer(BaseModel):
